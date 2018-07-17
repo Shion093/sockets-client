@@ -3,18 +3,7 @@ import './App.css';
 
 import { socket } from './socket';
 
-const pc = new window.RTCPeerConnection({
-  iceServers : [
-    {
-      urls : ["stun:stun.l.google.com:19302"],
-    },
-    {
-      urls: 'turn:numb.viagenie.ca',
-      credential: 'muazkh',
-      username: 'webrtc@live.com'
-    },
-  ]
-});
+let pc;
 
 class App extends Component {
   constructor(props) {
@@ -27,26 +16,46 @@ class App extends Component {
 
   componentDidMount () {
     const answersFrom = {};
+    pc = new window.RTCPeerConnection({
+      iceServers : [
+        {
+          urls : ["stun:stun.l.google.com:19302"],
+        },
+        {
+          urls: 'turn:numb.viagenie.ca',
+          credential: 'muazkh',
+          username: 'webrtc@live.com'
+        },
+      ]
+    });
+
+    pc.oniceconnectionstatechange = function(){
+      console.log('ICE state: ', pc.iceConnectionState);
+    }
+
     navigator.mediaDevices.getUserMedia({ video: true, audio: true })
       .then((stream) => {
         console.log(stream);
         const video = document.querySelector('video');
         video.srcObject = stream;
-        pc.addStream(stream);
+        stream.getTracks().forEach(track => pc.addTrack(track, stream));
       }).catch((err) => {
       console.log(err);
     });
 
     pc.ontrack = this.addStream;
 
-    socket.on('answer-made', (data) => {
-      return pc.setRemoteDescription(data.answer).then(() => {
-        document.getElementById(data.socket).setAttribute('className', 'active');
+    socket.on('answer-made', async (data) => {
+      try {
+        console.log('ans', data);
+        await pc.setRemoteDescription(data.answer);
         if (!answersFrom[data.socket]) {
           this.createOffer(data.socket);
           answersFrom[data.socket] = true;
         }
-      });
+      } catch (e) {
+        console.log(e);
+      }
     });
 
     socket.on('offer-made', async (data) => {
@@ -83,6 +92,7 @@ class App extends Component {
     const offer = await pc.createOffer();
     console.log(offer);
     await pc.setLocalDescription(offer);
+    socket.emit('join', id);
     socket.emit('make-offer', {
       offer,
       to : id
