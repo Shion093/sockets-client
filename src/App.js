@@ -11,6 +11,7 @@ class App extends Component {
 
     this.state = {
       users : [],
+      rooms : [],
     }
   }
 
@@ -58,6 +59,14 @@ class App extends Component {
       }
     });
 
+    socket.on('added', async (data) => {
+      try {
+        console.log('ans', data);
+      } catch (e) {
+        console.log(e);
+      }
+    });
+
     socket.on('offer-made', async (data) => {
       try {
         console.log(data);
@@ -92,11 +101,14 @@ class App extends Component {
     const offer = await pc.createOffer();
     console.log(offer);
     await pc.setLocalDescription(offer);
-    socket.emit('join', id);
     socket.emit('make-offer', {
       offer,
       to : id
     });
+  };
+
+  createRoom = () => {
+    socket.emit('join', 'test');
   };
 
   addStream = (obj) => {
@@ -109,7 +121,6 @@ class App extends Component {
     setTimeout(() => {
       this.setState({hola : 'juuuuu'});
     }, 4000)
-
   };
 
   render() {
@@ -120,6 +131,7 @@ class App extends Component {
           <video className="video-large" autoPlay />
           <video id="video2" ref={video => this.video = video} className="video-large" autoPlay />
           <div className="users-container" id="users-container">
+            <button onClick={this.createRoom}>Create Room</button>
             <h4>Users</h4>
             {
               this.state.users.map(u => {
