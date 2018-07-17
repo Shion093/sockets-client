@@ -1,5 +1,4 @@
 import React, { Component } from 'react';
-import logo from './logo.svg';
 import './App.css';
 
 import { socket } from './socket';
@@ -7,41 +6,41 @@ import { socket } from './socket';
 const pc = new window.RTCPeerConnection({
   iceServers : [
     {
-      urls : "stun:stun.l.google.com:19302",
-    }
+      urls : ["stun:stun.l.google.com:19302"],
+    },
+    {
+      urls: 'turn:numb.viagenie.ca',
+      credential: 'muazkh',
+      username: 'webrtc@live.com'
+    },
   ]
 });
 
 class App extends Component {
   constructor(props) {
     super(props);
+
+    this.state = {
+      users : [],
+    }
   }
 
-  createOffer = async (id) => {
-    console.log(id);
-    const offer = await pc.createOffer();
-    console.log(offer);
-    await pc.setLocalDescription(offer);
-    socket.emit('make-offer', {
-      offer,
-      to : id
-    });
-  };
-
-  render() {
+  componentDidMount () {
     const answersFrom = {};
-    navigator.mediaDevices.getUserMedia({ video: false, audio: true })
+    navigator.mediaDevices.getUserMedia({ video: true, audio: true })
       .then((stream) => {
         console.log(stream);
-        const audio = document.querySelector('audio');
-        audio.srcObject = stream;
+        const video = document.querySelector('video');
+        video.srcObject = stream;
         pc.addStream(stream);
       }).catch((err) => {
       console.log(err);
     });
 
+    pc.ontrack = this.addStream;
+
     socket.on('answer-made', (data) => {
-      pc.setRemoteDescription(data.answer).then(() => {
+      return pc.setRemoteDescription(data.answer).then(() => {
         document.getElementById(data.socket).setAttribute('className', 'active');
         if (!answersFrom[data.socket]) {
           this.createOffer(data.socket);
@@ -67,36 +66,59 @@ class App extends Component {
     });
 
     socket.on('add-users', (data) => {
-      for (let i = 0; i < data.users.length; i++) {
-        const el = document.createElement('div');
-        const id = data.users[i];
-
-        el.setAttribute('id', id);
-        el.innerHTML = id;
-        el.addEventListener('click', () => {
-          this.createOffer(id);
-        });
-        document.getElementById('users').appendChild(el);
-      }
+      this.setState({
+        users: data.users,
+      });
     });
 
     socket.on('remove-user', (id) => {
-      const div = document.getElementById(id);
-      document.getElementById('users').removeChild(div);
+      const users = this.state.users;
+      users.splice(users.indexOf(id), 1);
+      this.setState({users});
     });
+  }
 
+  createOffer = (id) => async () => {
+    console.log(id);
+    const offer = await pc.createOffer();
+    console.log(offer);
+    await pc.setLocalDescription(offer);
+    socket.emit('make-offer', {
+      offer,
+      to : id
+    });
+  };
+
+  addStream = (obj) => {
+    console.log(obj);
+    console.log(obj.streams[0]);
+    this.video.srcObject = obj.streams[0];
+    const video = document.querySelector('#video2');
+    video.srcObject = obj.streams[0];
+
+    setTimeout(() => {
+      this.setState({hola : 'juuuuu'});
+    }, 4000)
+
+  };
+
+  render() {
+    console.log('render');
     return (
       <div className="App">
-        <header className="App-header">
-          <img src={logo} className="App-logo" alt="logo" />
-          <h1 className="App-title">Welcome to React</h1>
-        </header>
         <div className="container">
           <video className="video-large" autoPlay />
-          <audio className="video-large" autoPlay controls />
+          <video id="video2" ref={video => this.video = video} className="video-large" autoPlay />
           <div className="users-container" id="users-container">
             <h4>Users</h4>
-            <div id="users"></div>
+            {
+              this.state.users.map(u => {
+                console.log(u);
+                return (
+                  <button key={u} onClick={this.createOffer(u)}>{u}</button>
+                )
+              })
+            }
           </div>
         </div>
       </div>
