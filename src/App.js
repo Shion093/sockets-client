@@ -2,18 +2,12 @@ import React, { Component } from 'react';
 import logo from './logo.svg';
 import './App.css';
 
-import { subscribeToTimer, socket } from './socket';
+import { socket } from './socket';
 
-const peerConnection = window.RTCPeerConnection;
-
-const sessionDescription = window.RTCSessionDescription;
-
-const pc = new peerConnection({
+const pc = new window.RTCPeerConnection({
   iceServers : [
     {
-      urls       : "turn:turnserver.example.org",
-      username   : "webrtc",
-      credential : "turnpassword"
+      urls : "stun:stun.l.google.com:19302",
     }
   ]
 });
@@ -21,107 +15,72 @@ const pc = new peerConnection({
 class App extends Component {
   constructor(props) {
     super(props);
-
-    subscribeToTimer((err, timestamp) => this.setState({
-      timestamp
-    }));
   }
+
+  createOffer = async (id) => {
+    console.log(id);
+    const offer = await pc.createOffer();
+    console.log(offer);
+    await pc.setLocalDescription(offer);
+    socket.emit('make-offer', {
+      offer,
+      to : id
+    });
+  };
 
   render() {
     const answersFrom = {};
-    let offer = '';
-
-    pc.onaddstream = function(obj) {
-      console.log('add stream')
-      const vid = document.createElement('video');
-      vid.setAttribute('class', 'video-small');
-      vid.setAttribute('autolay', 'autolay');
-      vid.setAttribute('id', 'video-small');
-      document.getElementById('users-container').appendChild(vid);
-      vid.src = window.URL.createObjectURL(obj.stream);
-    };
-
-    pc.onaddtack = function(obj) {
-      console.log('add stream')
-      const vid = document.createElement('video');
-      vid.setAttribute('class', 'video-small');
-      vid.setAttribute('autolay', 'autolay');
-      vid.setAttribute('id', 'video-small');
-      document.getElementById('users-container').appendChild(vid);
-      vid.src = window.URL.createObjectURL(obj.stream);
-    };
-
     navigator.mediaDevices.getUserMedia({ video: false, audio: true })
-      .then(function(stream) {
+      .then((stream) => {
         console.log(stream);
-        var video = document.querySelector('video');
-        video.src = window.URL.createObjectURL(stream);
+        const audio = document.querySelector('audio');
+        audio.srcObject = stream;
         pc.addStream(stream);
       }).catch((err) => {
       console.log(err);
     });
 
-    function createOffer(id) {
-      pc.createOffer(function(offer) {
-        pc.setLocalDescription(new sessionDescription(offer), function() {
-          socket.emit('make-offer', {
-            offer: offer,
-            to: id
-          });
-        }, function (err) {
-          console.log(err);
-        });
-      }, function (err) {
-        console.log(err);
-      });
-    }
-
-    socket.on('answer-made', function(data) {
-      pc.setRemoteDescription(new sessionDescription(data.answer)).then(() => {
-        document.getElementById(data.socket).setAttribute('class', 'active');
+    socket.on('answer-made', (data) => {
+      pc.setRemoteDescription(data.answer).then(() => {
+        document.getElementById(data.socket).setAttribute('className', 'active');
         if (!answersFrom[data.socket]) {
-          createOffer(data.socket);
+          this.createOffer(data.socket);
           answersFrom[data.socket] = true;
         }
       });
     });
 
-    socket.on('offer-made', function(data) {
-      offer = data.offer;
-
-      pc.setRemoteDescription(new sessionDescription(data.offer), function() {
-        pc.createAnswer(function(answer) {
-          pc.setLocalDescription(new sessionDescription(answer), function() {
-            socket.emit('make-answer', {
-              answer: answer,
-              to: data.socket
-            });
-          }, function (err) {
-            console.log(err);
-          });
-        }, function (err) {
-          console.log(err);
+    socket.on('offer-made', async (data) => {
+      try {
+        console.log(data);
+        await pc.setRemoteDescription(data.offer);
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        socket.emit('make-answer', {
+          answer: answer,
+          to: data.offer,
         });
-      }, function (err) {
+      } catch (err) {
+        console.log(data);
         console.log(err);
-      });
+      }
     });
 
-    socket.on('add-users', function(data) {
-      for (var i = 0; i < data.users.length; i++) {
-        var el = document.createElement('div'),
-          id = data.users[i];
+    socket.on('add-users', (data) => {
+      for (let i = 0; i < data.users.length; i++) {
+        const el = document.createElement('div');
+        const id = data.users[i];
 
         el.setAttribute('id', id);
         el.innerHTML = id;
-        el.addEventListener('click', function() {
-          createOffer(id);
+        el.addEventListener('click', () => {
+          this.createOffer(id);
         });
         document.getElementById('users').appendChild(el);
       }
     });
 
-    socket.on('remove-user', function(id) {
+    socket.on('remove-user', (id) => {
       const div = document.getElementById(id);
       document.getElementById('users').removeChild(div);
     });
@@ -134,6 +93,7 @@ class App extends Component {
         </header>
         <div className="container">
           <video className="video-large" autoPlay />
+          <audio className="video-large" autoPlay controls />
           <div className="users-container" id="users-container">
             <h4>Users</h4>
             <div id="users"></div>
