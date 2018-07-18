@@ -30,3 +30,12 @@
 .active {
   color : red;
 }
+
+video {
+  height: 225px;
+
+  margin: 0 0 20px 0;
+
+  width: calc(50% - 12px);
+  background: #222;
+}
