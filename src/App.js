@@ -1,5 +1,7 @@
 import React from "react";
 import "webrtc-adapter";
+import flvjs from 'flv.js';
+
 
 import { socket } from './socket';
 
@@ -59,6 +61,15 @@ class App extends React.Component {
     socket.on('answer-made', (data) => {
       console.log(data);
     });
+
+    var videoElement = document.getElementById('videoElement');
+    var flvPlayer = flvjs.createPlayer({
+      type: 'flv',
+      url: 'ws://localhost:8000/live/test.flv'
+    });
+    flvPlayer.attachMediaElement(videoElement);
+    flvPlayer.load();
+    flvPlayer.play();
   }
 
   gotStream = stream => {
@@ -96,6 +107,7 @@ class App extends React.Component {
             height: "180px"
           }}
         />
+        <video src="" id="videoElement" />
         <div>
           <button onClick={this.start2} disabled={startDisabled}>
             Start{" "}
