@@ -1,4 +1,4 @@
 import io from 'socket.io-client';
-const socket = io('https://8a4d4875.ngrok.io');
+const socket = io('http://localhost:7777');
 
 export { socket };
